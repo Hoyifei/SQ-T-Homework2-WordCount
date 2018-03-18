@@ -58,7 +58,7 @@ TEST(TestMethod4,UnitTest1){
     argv[1]=arg1;
     GENERATE_ARG(arg2,"input.txt");
     argv[2]=arg2;
-    GENERATE_ARG(arg3,"-a");
+    GENERATE_ARG(arg3,"-r");
     argv[3]=arg3;
     int argc=4;
     CWordCount test;

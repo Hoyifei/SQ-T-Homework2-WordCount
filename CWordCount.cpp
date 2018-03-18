@@ -8,6 +8,9 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
+#include <boost/filesystem.hpp>
+#include <regex>
+#include <sstream>
 
 using namespace std;
 using namespace WordCount;
@@ -35,13 +38,29 @@ size_t WordCount::CWordCount::count_char() {
 
 size_t WordCount::CWordCount::count_word() {
     size_t count = 0;
+    string word;
     char lastChar = ' ';
     auto len=strlen(str);
     char c;
+    word.clear();
     for(auto i=0;i<len;++i){
         c=str[i];
-        if ((c != ',' && c != ' ' && c != '\0' && c != '\r' && c != '\n') && (lastChar == ','|| lastChar == ' '|| lastChar == '\n')) {
-            count++;
+        if ((c != ',' && c != ' ' && c != '\0' && c != '\r' && c != '\n')) {
+            if(lastChar == ','|| lastChar == ' '|| lastChar == '\n') {
+                if (!word.empty()){
+                    bool matched=false;
+                    for(auto it=excepts.begin();it!=excepts.end();++it){
+                        char* except_word=*it;
+                        if(strcasecmp(except_word,word.c_str())==0){
+                            matched=true;
+                            break;
+                        }
+                    }
+                    if(!matched) count++;
+                }
+                word.clear();
+            }
+            word.push_back(c);
         }
         lastChar = c;
     }
@@ -52,10 +71,13 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
     if(argc<2||argv==nullptr){
         return(-1);
     }
-
     reset();
     bool output_to_file=true;
     bool is_select_file = false;
+    bool recursive_search=false;
+    bool operation_specified=false;
+    bool source_specified=false;
+    bool except_specified= false;
     ArgsStatus status = Uninitialized;
     for (int i=1;i<argc;++i){
         //cerr<<"ZXCV"<<" "<<status<<" "<<argv[i]<<" "<<strcasecmp(argv[i],"-c")<<endl;
@@ -65,98 +87,155 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
                 options.push_back(getstr("-c"));
                 options.push_back(getstr("-w"));
                 options.push_back(getstr("-l"));
+                options.push_back(getstr("-a"));
                 output_to_file = false;
                 is_select_file = true;
-            }else if(strcasecmp(argv[i],"-c")==0||strcasecmp(argv[i],"-l")==0||strcasecmp(argv[i],"-w")==0){
-                for(int k=0;k<options.size();++k){
-                    //cerr<<"ASDF"<<" "<<argv[i]<<" "<<options[k]<<endl;
-                    if(strcasecmp(argv[i],options[k])==0){
+                operation_specified=true;
+                source_specified=true;
+            }else if(strcasecmp(argv[i],"-c")==0||
+                     strcasecmp(argv[i],"-l")==0||
+                     strcasecmp(argv[i],"-w")==0||
+                     strcasecmp(argv[i],"-a")==0) {
+                for (int k = 0; k < options.size(); ++k) {
+                    if (strcasecmp(argv[i], options[k]) == 0) {
                         log_arg_error(0x1);
-                        return(0x1);
+                        return (0x1);
                     }
                 }
+                operation_specified=true;
                 options.push_back(getstr(argv[i]));
-                status=NormalOption;
+                status = NormalOption;
+            }else if(strcasecmp(argv[i],"-s")==0){
+                if(recursive_search){
+                    log_arg_error(0x1);
+                    return (0x1);
+                }
+                recursive_search=true;
+            }else if(strcasecmp("-o",argv[i])==0){
+                if(outputFile!= nullptr){
+                    log_arg_error(0x4);
+                    return(0x4);
+                }
+                status=OutputFile;
+            }else if(strcasecmp("-e",argv[i])==0){
+                if(exceptFile!= nullptr){
+                    log_arg_error(0x4);
+                    return(0x4);
+                }
+                status=ExceptFile;
             }else if(status==NormalOption){
+                if(sourceFile){
+                    sourceFiles.push_back(sourceFile);
+                }
                 sourceFile=getstr(argv[i]);
-                status=OutputOption;
+                source_specified=true;
             }else{
                 log_arg_error(0x2);
                 return(0x2);
             }
-        }else if(status==OutputOption){
-            if(strcasecmp("-o",argv[i])==0){
-                status=OutputFile;
-            }else{
-                log_arg_error(0x3);
-                return(0x3);
-            }
         }else if(status==OutputFile){
             outputFile=getstr(argv[i]);
-            status=Finish;
+            status=NormalOption;
+        }else if(status==ExceptFile){
+            exceptFile=getstr(argv[i]);
+            except_specified=true;
+            status=NormalOption;
         }else if(status==Finish){
             log_arg_error(0x4);
             return(0x4);
         }
     }
-    if(status!=Finish&&status!=OutputOption){
+    if(status==OutputFile||status==ExceptFile){
+        log_arg_error(0x5);
+        return(0x5);
+    }
+    if(!operation_specified||!source_specified){
         log_arg_error(0x5);
         return(0x5);
     }
     if(outputFile==nullptr){
         outputFile=getstr("result.txt");
     }
+    if(except_specified){
+        if(deal_with_except()!=0){
+            return (0x6);
+        }
+    }
     if (is_select_file) {
-        sourceFile=read();
-        if(sourceFile== nullptr){
-            return(0x6);
-        }
-    } else {
-        if(read(sourceFile)!=0){
-            cerr<<"Error while opening input file"<<sourceFile<<endl;
-            return(0x6);
-        }
+        sourceFiles.push_back(getinputfile());
+        sourceFile= nullptr;
+    }else if(recursive_search){
+        deal_with_recursive();
+    }else{
+        sourceFiles.push_back(sourceFile);
+        sourceFile= nullptr;
     }
-    int c_result = -1;
-    int w_result = -1;
-    int l_result = -1;
-
-    for(int i=0;i<options.size();++i) {
-        if (strcasecmp("-c",options[i])==0)
-            c_result = (int)count_char();
-        else if (strcasecmp("-w",options[i])==0)
-            w_result = (int)count_word();
-        else if (strcasecmp("-l",options[i])==0)
-            l_result = (int)count_line();
-        else {
-            cerr<<"Invalid argument accepted!!!"<<endl;
-            return(-1);
+//    cout<<output_to_file<<" "<<outputFile<<endl;
+    stringstream output_content;
+    for(auto it=sourceFiles.begin();it!=sourceFiles.end();++it) {
+        char* current_source_file=*it;
+        //cerr<<current_source_file<<endl;
+        if (read(current_source_file) != 0) {
+            cerr << "Error while opening input file" << current_source_file << endl;
+            return (0x6);
         }
-    }
+        int c_result = -1;
+        int w_result = -1;
+        int l_result = -1;
+        CWordCount::TAdvancedResult a_result;
+        a_result.note=-1;
 
-    if (c_result != -1)
-        cout<<sourceFile<<" has "<<c_result<<" character(s) in total"<<endl;
-    if (w_result != -1)
-        cout<<sourceFile<<" has "<<w_result<<" word(s) in total"<<endl;
-    if (l_result != -1)
-        cout<<sourceFile<<" has "<<l_result<<" line(s) in total"<<endl;
+        for (int i = 0; i < options.size(); ++i) {
+            if (strcasecmp("-c", options[i]) == 0)
+                c_result = (int) count_char();
+            else if (strcasecmp("-w", options[i]) == 0)
+                w_result = (int) count_word();
+            else if (strcasecmp("-l", options[i]) == 0)
+                l_result = (int) count_line();
+            else if (strcasecmp("-a", options[i]) == 0)
+                a_result = count_advanced();
+            else {
+                cerr << "Invalid argument accepted!!!" << endl;
+                return (-1);
+            }
+        }
 
-    if (output_to_file) {
-        ofstream outfile;
-        outfile.open(outputFile);
-        if(outfile.good()) {
+        if (c_result != -1)
+            cout << current_source_file << " has " << c_result << " character(s) in total" << endl;
+        if (w_result != -1)
+            cout << current_source_file << " has " << w_result << " word(s) in total" << endl;
+        if (l_result != -1)
+            cout << current_source_file << " has " << l_result << " line(s) in total" << endl;
+        if (a_result.note!=-1)
+            cout << current_source_file << " has " <<
+                    a_result.code<<"/"<<a_result.empty<<"/"<<a_result.note<<
+                    " code/empty/note lines"<<endl;
+
+        if (output_to_file) {
             if (c_result != -1)
-                outfile<<sourceFile<<" has "<<c_result<<" character(s) in total"<<endl;
+                output_content << current_source_file << " has " << c_result << " character(s) in total" << endl;
             if (w_result != -1)
-                outfile<<sourceFile<<" has "<<w_result<<" word(s) in total"<<endl;
+                output_content << current_source_file << " has " << w_result << " word(s) in total" << endl;
             if (l_result != -1)
-                outfile<<sourceFile<<" has "<<l_result<<" line(s) in total"<<endl;
-            outfile.close();
-        } else {
-            cerr<<"Error while opening output file"<<(outputFile==nullptr?"NULL":sourceFile)<<endl;
-            return(0x6);
-        }
+                output_content << current_source_file << " has " << l_result << " line(s) in total" << endl;
+            if (a_result.note!=-1)
+                output_content << current_source_file << " has " <<
+                                  a_result.code<<"/"<<a_result.empty<<"/"<<a_result.note<<
+                                  " code/empty/note lines"<<endl;
             //Console.WriteLine("输出到文件" + outputFile + "成功");
+        }
+        free(str);
+        str= nullptr;
+    }
+    ofstream outfile;
+    if (output_to_file) {
+        outfile.open(outputFile);
+        if (!outfile.good()) {
+            cerr << "Error while opening output file" << (outputFile == nullptr ? "NULL" : sourceFile) << endl;
+            return (0x6);
+        }
+        outfile<<output_content.str();
+        outfile.close();
     }
     return 0;
 }
@@ -180,7 +259,6 @@ int WordCount::CWordCount::read(const char *fileName) {
 WordCount::CWordCount::CWordCount() {
     num_line=-1;num_word=-1;num_char=-1;
     str=nullptr;
-    sourceFile = nullptr;
     outputFile = nullptr;
 }
 
@@ -203,6 +281,15 @@ void WordCount::CWordCount::reset() {
     for(int i=0;i<options.size();++i){
         free(options[i]);
     }
+    for(int i=0;i<excepts.size();++i){
+        free(excepts[i]);
+    }
+    for(int i=0;i<sourceFiles.size();++i){
+        free(sourceFiles[i]);
+    }
+    options.clear();
+    excepts.clear();
+    sourceFiles.clear();
     if(sourceFile!=nullptr){
         free(sourceFile);
     }
@@ -214,11 +301,11 @@ void WordCount::CWordCount::reset() {
     }
     num_line=-1;num_word=-1;num_char=-1;
     str=nullptr;
-    sourceFile = nullptr;
     outputFile = nullptr;
+    exceptFile = nullptr;
 }
 
-char *WordCount::CWordCount::read(void) {
+char *WordCount::CWordCount::getinputfile(void) {
     string filename;
     cout<<"Please input SourceFile:";
     cin>>filename;
@@ -227,5 +314,163 @@ char *WordCount::CWordCount::read(void) {
         return(nullptr);
     }
     return(getstr(filename.c_str()));
+}
+
+void CWordCount::deal_with_recursive() {
+    char *regex_path=(char*)malloc((strlen(sourceFile)+1)<<1);
+    int cur_position=0;
+    //cerr<<sourceFile<<endl;
+    for(int i=0;i<strlen(sourceFile);++i){
+        switch(sourceFile[i]){
+            case '.':
+            case '\\':
+            case '$':
+            case '(':
+            case ')':
+            case '+':
+            case '[':
+            case ']':
+            case '^':
+            case '{':
+            case '}':
+            case '|':{//they are not wildcard,keep them unchanged
+                regex_path[cur_position] = '\\';
+                ++cur_position;
+                break;
+            }
+            case '*':
+            case '?':{//*->.* ?->.
+                regex_path[cur_position] = '.';
+                ++cur_position;
+                break;
+            }
+            default:break;
+        }
+        if(sourceFile[i]!='?'){
+            regex_path[cur_position] = sourceFile[i];
+            ++cur_position;
+        }
+    }
+    regex_path[cur_position]=0;
+    //cerr<<regex_path<<endl;
+    regex wildcard_path_reg(regex_path,regex_constants::ECMAScript);
+    boost::filesystem::path dir_path("./");
+    boost::filesystem::recursive_directory_iterator dir_iter(dir_path),end;
+    while(dir_iter!=end){
+        if(!boost::filesystem::is_directory(dir_iter->path())) {
+            //cerr<<dir_iter->path().filename().string()<<endl;
+            if(regex_match(dir_iter->path().filename().string(),wildcard_path_reg)){
+                sourceFiles.push_back(getstr(dir_iter->path().c_str()));
+            }
+        }
+        ++dir_iter;
+    }
+}
+
+int CWordCount::deal_with_except() {
+    if(read(exceptFile)!=0){
+        cerr<<"Error while opening except list file"<<exceptFile<<endl;
+        return(-1);
+    }
+    string word;
+    char lastChar = ' ';
+    auto len=strlen(str);
+    char c;
+    word.clear();
+    for(auto i=0;i<len;++i){
+        c=str[i];
+        if ((c != ',' && c != ' ' && c != '\0' && c != '\r' && c != '\n')) {
+            if(lastChar == ','|| lastChar == ' '|| lastChar == '\n') {
+                if (!word.empty())
+                    excepts.push_back(getstr(word.c_str()));
+                word.clear();
+            }
+            word.push_back(c);
+        }
+        lastChar = c;
+    }
+    free(str);
+    return 0;
+}
+
+CWordCount::TAdvancedResult CWordCount::count_advanced() {
+    TAdvancedResult ans;
+    ans.empty=0;
+    ans.code=0;
+    ans.note=0;
+    auto len=strlen(str);
+    char c;
+    int cur_line_code_chars=0,cur_line_visible_chars=0;
+    bool line_note=false,block_note=false,line_include_note=false;
+    char last_char=0;
+    for(auto i=0;i<len;++i){
+        c=str[i];
+        switch(c){
+            case ' ':case '\t':case '\r':case '\0':{
+                last_char=c;
+                break;
+            }
+            case '\n':{
+                if(cur_line_visible_chars<=1) ++ans.empty;
+                if(cur_line_code_chars>1) ++ans.code;
+                if(cur_line_code_chars<=1&&line_include_note) ++ans.note;
+                cur_line_visible_chars=0;
+                cur_line_code_chars=0;
+                line_note=false;
+                line_include_note=false;
+                if(block_note) line_include_note=true;
+                last_char=c;
+                break;
+            }
+            case '/':{
+                ++cur_line_visible_chars;
+                if(!line_note&&!block_note) {
+                    if (last_char == '/') {
+                        --cur_line_code_chars;
+                        line_note = true;
+                        line_include_note=true;
+                        last_char=0;
+                    }else {
+                        ++cur_line_code_chars;
+                        last_char=c;
+                    }
+                }else if(block_note){
+                    if(last_char=='*'){
+                        block_note=false;
+                        last_char=0;
+                    }else{
+                        last_char=c;
+                    }
+                }
+                break;
+            }
+            case '*':{
+                ++cur_line_visible_chars;
+                if(!line_note&&!block_note) {
+                    if (last_char == '/') {
+                        --cur_line_code_chars;
+                        block_note = true;
+                        line_include_note=true;
+                        last_char=0;
+                    }else {
+                        ++cur_line_code_chars;
+                        last_char=c;
+                    }
+                }else{
+                    last_char=c;
+                }
+                break;
+            }
+            default: {
+                if(!line_note&&!block_note) ++cur_line_code_chars;
+                ++cur_line_visible_chars;
+                break;
+            }
+        }
+    }
+    if(cur_line_visible_chars<=1) ++ans.empty;
+    if(cur_line_code_chars>1) ++ans.code;
+    if(cur_line_code_chars<=1&&line_include_note) ++ans.note;
+    return ans;
 }
 

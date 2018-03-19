@@ -45,8 +45,8 @@ size_t WordCount::CWordCount::count_word() {
     word.clear();
     for(auto i=0;i<len;++i){
         c=str[i];
-        if ((c != ',' && c != ' ' && c != '\0' && c != '\r' && c != '\n')) {
-            if(lastChar == ','|| lastChar == ' '|| lastChar == '\n') {
+        if ((c != ',' && c != ' ' && c != '\0' && c != '\r' && c != '\n' && c != '\t')) {
+            if(lastChar == ','|| lastChar == ' '|| lastChar == '\n' || lastChar=='\t') {
                 if (!word.empty()){
                     bool matched=false;
                     for(auto it=excepts.begin();it!=excepts.end();++it){
@@ -56,6 +56,7 @@ size_t WordCount::CWordCount::count_word() {
                             break;
                         }
                     }
+                    //cerr<<word<<endl;
                     if(!matched) count++;
                 }
                 word.clear();
@@ -63,6 +64,18 @@ size_t WordCount::CWordCount::count_word() {
             word.push_back(c);
         }
         lastChar = c;
+    }
+    if (!word.empty()){
+        bool matched=false;
+        for(auto it=excepts.begin();it!=excepts.end();++it){
+            char* except_word=*it;
+            if(strcasecmp(except_word,word.c_str())==0){
+                matched=true;
+                break;
+            }
+        }
+        //cerr<<word<<endl;
+        if(!matched) count++;
     }
     return count;
 }
@@ -201,11 +214,11 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
         }
 
         if (c_result != -1)
-            cout << current_source_file << " has " << c_result << " character(s) in total" << endl;
+            cout << current_source_file << " has " << c_result << " character(s)" << endl;
         if (w_result != -1)
-            cout << current_source_file << " has " << w_result << " word(s) in total" << endl;
+            cout << current_source_file << " has " << w_result << " word(s)" << endl;
         if (l_result != -1)
-            cout << current_source_file << " has " << l_result << " line(s) in total" << endl;
+            cout << current_source_file << " has " << l_result << " line(s)" << endl;
         if (a_result.note!=-1)
             cout << current_source_file << " has " <<
                     a_result.code<<"/"<<a_result.empty<<"/"<<a_result.note<<
@@ -213,11 +226,11 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
 
         if (output_to_file) {
             if (c_result != -1)
-                output_content << current_source_file << " has " << c_result << " character(s) in total" << endl;
+                output_content << current_source_file << " has " << c_result << " character(s)" << endl;
             if (w_result != -1)
-                output_content << current_source_file << " has " << w_result << " word(s) in total" << endl;
+                output_content << current_source_file << " has " << w_result << " word(s)" << endl;
             if (l_result != -1)
-                output_content << current_source_file << " has " << l_result << " line(s) in total" << endl;
+                output_content << current_source_file << " has " << l_result << " line(s)" << endl;
             if (a_result.note!=-1)
                 output_content << current_source_file << " has " <<
                                   a_result.code<<"/"<<a_result.empty<<"/"<<a_result.note<<
@@ -250,9 +263,11 @@ int WordCount::CWordCount::read(const char *fileName) {
     buffer=filestr.rdbuf();
     auto size=buffer->pubseekoff(0,ios::end,ios::in);
     buffer->pubseekpos(0,ios::in);
-    str=(char*)malloc(size);
+    str=(char*)malloc((size_t)size+(size_t)9);
+    memset(str,0,sizeof(str));
     buffer->sgetn(str,size);
     filestr.close();
+    //cerr<<str<<endl;
     return(0);
 }
 
@@ -354,7 +369,7 @@ void CWordCount::deal_with_recursive() {
     regex_path[cur_position]=0;
     //cerr<<regex_path<<endl;
     regex wildcard_path_reg(regex_path,regex_constants::ECMAScript);
-    boost::filesystem::path dir_path("./");
+    boost::filesystem::path dir_path(".");
     boost::filesystem::recursive_directory_iterator dir_iter(dir_path),end;
     while(dir_iter!=end){
         if(!boost::filesystem::is_directory(dir_iter->path())) {
@@ -389,6 +404,8 @@ int CWordCount::deal_with_except() {
         }
         lastChar = c;
     }
+    if (!word.empty())
+        excepts.push_back(getstr(word.c_str()));
     free(str);
     return 0;
 }
@@ -468,9 +485,12 @@ CWordCount::TAdvancedResult CWordCount::count_advanced() {
             }
         }
     }
-    if(cur_line_visible_chars<=1) ++ans.empty;
-    if(cur_line_code_chars>1) ++ans.code;
-    if(cur_line_code_chars<=1&&line_include_note) ++ans.note;
+    if(last_char!='\n') {
+        if (cur_line_visible_chars <= 1) ++ans.empty;
+        if (cur_line_code_chars > 1) ++ans.code;
+        if (cur_line_code_chars <= 1 && line_include_note) ++ans.note;
+    }
+    //cerr<<ans.note<<" "<<ans.empty<<" "<<ans.code<<endl;
     return ans;
 }
 

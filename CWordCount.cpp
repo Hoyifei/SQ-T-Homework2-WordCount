@@ -93,7 +93,6 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
     bool except_specified= false;
     ArgsStatus status = Uninitialized;
     for (int i=1;i<argc;++i){
-        //cerr<<"ZXCV"<<" "<<status<<" "<<argv[i]<<" "<<strcasecmp(argv[i],"-c")<<endl;
         if(status==Uninitialized || status==NormalOption) {
             if (status == Uninitialized && strcasecmp(argv[i], "-x")==0) {
                 status = Finish;

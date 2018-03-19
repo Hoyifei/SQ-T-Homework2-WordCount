@@ -10,10 +10,7 @@ namespace WordCount {
     enum ArgsStatus{
         Uninitialized = 0,
         NormalOption = 1,
-        SourceFile = 2,
-        OutputOption = 3,
         OutputFile = 4,
-        ExceptOption=5,
         ExceptFile=6,
         Finish = 7
     };

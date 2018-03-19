@@ -1,0 +1,25 @@
+codeline//adjkadhkahdkhakdha
+e
+m
+p
+t
+y
+l
+i
+n
+e
+                        
+n//oteline
+/*emptyline in note
+
+*/*this is a codeline*/
+//*noteline
+this is a codeline*/
+///*noteline
+this is a codeline*/
+/*note1
+note2
+note3*/
+summary:5 codeline 14 emptyline 8 noteline
+
+

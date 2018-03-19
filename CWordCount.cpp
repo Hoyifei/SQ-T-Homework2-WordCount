@@ -274,6 +274,7 @@ int WordCount::CWordCount::read(const char *fileName) {
 WordCount::CWordCount::CWordCount() {
     num_line=-1;num_word=-1;num_char=-1;
     str=nullptr;
+    sourceFile = nullptr;
     outputFile = nullptr;
 }
 

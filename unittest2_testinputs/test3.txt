@@ -1,0 +1,22 @@
+test()code1
+{
+File cjhdsbfjhesf = new File (bfsjhdbjf);code2
+            writename.createNewFile();code3
+codeline*/code4
+
+            BufferedWriter bsjfbsj= new dsjhjae(new csjc(kesch));code5
+    //noteline
+            out.write(hvksfk);code6
+            
+/*noteline
+/*noteline
+*/
+/*noteline*/
+/*noteline
+//noteline
+*/codeLinecode7
+            out.esjdf();code8
+            out.nsjbjhdf();code9
+}//noteLine
+for(){code10
+}/*noteline*/

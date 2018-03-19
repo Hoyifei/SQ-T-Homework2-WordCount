@@ -32,7 +32,7 @@ TEST(TestMethod2,UnitTest1){
     argv[2]=arg2;
     int argc=3;
     CWordCount test;
-    EXPECT_EQ(test.entrance(argc,argv),2);
+    EXPECT_EQ(test.entrance(argc,argv),6);
     CLEAR_ARGS;
 }
 TEST(TestMethod3,UnitTest1){

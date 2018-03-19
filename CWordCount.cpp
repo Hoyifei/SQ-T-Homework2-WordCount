@@ -136,15 +136,12 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
                     return(0x4);
                 }
                 status=ExceptFile;
-            }else if(status==NormalOption){
+            }else{
                 if(sourceFile){
                     sourceFiles.push_back(sourceFile);
                 }
                 sourceFile=getstr(argv[i]);
                 source_specified=true;
-            }else{
-                log_arg_error(0x2);
-                return(0x2);
             }
         }else if(status==OutputFile){
             outputFile=getstr(argv[i]);
@@ -162,7 +159,13 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
         log_arg_error(0x5);
         return(0x5);
     }
-    if(!operation_specified||!source_specified){
+    if(!operation_specified){
+        options.push_back(getstr("-c"));
+        options.push_back(getstr("-w"));
+        options.push_back(getstr("-l"));
+        options.push_back(getstr("-a"));
+    }
+    if(!source_specified){
         log_arg_error(0x5);
         return(0x5);
     }

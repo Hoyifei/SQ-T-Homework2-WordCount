@@ -47,7 +47,7 @@ TEST(TestMethod3,UnitTest1){
     argv[3]=arg3;
     int argc=4;
     CWordCount test;
-    EXPECT_EQ(test.entrance(argc,argv),1);
+    EXPECT_EQ(test.entrance(argc,argv),0);
     CLEAR_ARGS;
 }
 TEST(TestMethod4,UnitTest1){
@@ -81,7 +81,7 @@ TEST(TestMethod5,UnitTest1){
     argv[5]=arg5;
     int argc=6;
     CWordCount test;
-    EXPECT_EQ(test.entrance(argc,argv),1);
+    EXPECT_EQ(test.entrance(argc,argv),0);
     CLEAR_ARGS;
 }
 TEST(TestMethod6,UnitTest1){

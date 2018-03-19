@@ -108,14 +108,15 @@ int WordCount::CWordCount::entrance(int argc, char **argv) {
                      strcasecmp(argv[i],"-l")==0||
                      strcasecmp(argv[i],"-w")==0||
                      strcasecmp(argv[i],"-a")==0) {
+                bool operation_appeared=false;
                 for (int k = 0; k < options.size(); ++k) {
                     if (strcasecmp(argv[i], options[k]) == 0) {
-                        log_arg_error(0x1);
-                        return (0x1);
+                        operation_appeared=true;
                     }
                 }
                 operation_specified=true;
-                options.push_back(getstr(argv[i]));
+                if(!operation_appeared)
+                    options.push_back(getstr(argv[i]));
                 status = NormalOption;
             }else if(strcasecmp(argv[i],"-s")==0){
                 if(recursive_search){
